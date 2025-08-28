@@ -1,4 +1,4 @@
-// Trigger content script on the active tab and stream logs back to popup
+// Popup UI: logs and communicates with background service worker
 const log = (msg) => {
   const status = document.getElementById('status');
   status.textContent += `\n${msg}`;
@@ -6,20 +6,11 @@ const log = (msg) => {
   console.log(msg);
 };
 
-const sendCommandToActiveTab = async (command) => {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (!tab?.id) {
-    log('No active tab found.');
-    return;
-  }
-  // inject the content script if not already
-  await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    files: ['scraper.js']
-  });
-  const res = await chrome.tabs.sendMessage(tab.id, { type: command });
-  return res;
-};
+async function loadSettings() {
+  const { refreshMinutes = 10 } = await chrome.storage.local.get(['refreshMinutes']);
+  const input = document.getElementById('refreshMinutes');
+  if (input) input.value = refreshMinutes;
+}
 
 // Listen for progress logs from content script
 chrome.runtime.onMessage.addListener((message) => {
@@ -29,9 +20,7 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === 'SCRAPER_DONE') {
     const jobs = Array.isArray(message.payload) ? message.payload : [];
     log(`Scraping finished. Collected ${jobs.length} jobs.`);
-    // Log full jobs list to console for inspection
     console.log('[UpworkScraper] Jobs:', jobs);
-    // Optional: show a short preview in popup
     if (jobs.length) {
       const preview = jobs
         .slice(0, 5)
@@ -42,17 +31,27 @@ chrome.runtime.onMessage.addListener((message) => {
   }
 });
 
+// Wire buttons
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadSettings();
 
-document.getElementById('scrape').addEventListener('click', async () => {
-  document.getElementById('status').textContent = 'Starting...';
-  try {
-    const res = await sendCommandToActiveTab('START_SCRAPE');
-    if (res?.ok) {
-      log('Scraper started. Check console for detailed progress.');
-    } else {
-      log(res?.error || 'Failed to start scraper. Ensure you are on https://www.upwork.com/nx/search/jobs/.');
+  document.getElementById('save').addEventListener('click', async () => {
+    const minutes = parseInt(document.getElementById('refreshMinutes').value, 10);
+    if (!Number.isFinite(minutes) || minutes < 1) {
+      log('Please enter a valid refresh interval (minutes >= 1).');
+      return;
     }
-  } catch (e) {
-    log(`Error: ${e.message}`);
-  }
+    await chrome.runtime.sendMessage({ type: 'BG_UPDATE_SETTINGS', payload: { refreshMinutes: minutes } });
+    log(`Saved refresh interval: ${minutes} minute(s).`);
+  });
+
+  document.getElementById('start').addEventListener('click', async () => {
+    document.getElementById('status').textContent = 'Opening Upwork and starting scrape...';
+    try {
+      await chrome.runtime.sendMessage({ type: 'BG_START' });
+      log('Started. The extension will wait for the page to fully load, then scrape.');
+    } catch (e) {
+      log(`Error: ${e.message}`);
+    }
+  });
 });

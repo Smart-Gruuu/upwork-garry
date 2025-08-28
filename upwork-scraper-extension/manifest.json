@@ -1,16 +1,22 @@
 {
   "manifest_version": 3,
   "name": "Upwork Job Scraper",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Scrape job details from the Upwork job search page, log progress, and notify when done.",
   "permissions": [
     "activeTab",
     "scripting",
-    "notifications"
+    "notifications",
+    "tabs",
+    "alarms",
+    "storage"
   ],
   "host_permissions": [
     "https://www.upwork.com/*"
   ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_title": "Upwork Scraper",
     "default_popup": "popup.html"

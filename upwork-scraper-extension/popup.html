@@ -4,17 +4,27 @@
   <meta charset="utf-8" />
   <title>Upwork Job Scraper</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 12px; width: 320px; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 12px; width: 340px; }
     button { padding: 8px 12px; font-size: 14px; }
-    .row { margin-bottom: 8px; }
+    .row { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    label { font-size: 12px; color: #333; }
+    input[type=number] { width: 80px; padding: 6px; }
     #status { font-size: 12px; color: #444; white-space: pre-wrap; max-height: 160px; overflow: auto; border: 1px solid #ddd; padding: 6px; border-radius: 6px; }
   </style>
 </head>
 <body>
   <h3>Upwork Job Scraper</h3>
+
   <div class="row">
-    <button id="scrape">Scrape current tab</button>
+    <label for="refreshMinutes">Refresh (minutes):</label>
+    <input id="refreshMinutes" type="number" min="1" step="1" placeholder="10" value="10" />
+    <button id="save">Save</button>
   </div>
+
+  <div class="row">
+    <button id="start">Open Upwork and Scrape</button>
+  </div>
+
   <div id="status">Idle</div>
   <script src="popup.js"></script>
 </body>
