@@ -8,7 +8,10 @@
     button { padding: 8px 12px; font-size: 14px; }
     .row { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
     label { font-size: 12px; color: #333; }
-    input[type=number] { width: 80px; padding: 6px; }
+    input[type=number], input[type=text] { padding: 6px; }
+    #keywordsList { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+    .chip { background: #eef3ff; border: 1px solid #c9d8ff; border-radius: 12px; padding: 2px 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+    .chip button { border: none; background: transparent; cursor: pointer; font-size: 12px; }
     #status { font-size: 12px; color: #444; white-space: pre-wrap; max-height: 160px; overflow: auto; border: 1px solid #ddd; padding: 6px; border-radius: 6px; }
   </style>
 </head>
@@ -19,6 +22,12 @@
     <label for="refreshMinutes">Refresh (minutes):</label>
     <input id="refreshMinutes" type="number" min="1" step="1" placeholder="10" value="10" />
     <button id="save">Save</button>
+  </div>
+
+  <div class="row" style="flex-direction: column; align-items: stretch;">
+    <label for="keywordInput">Keywords (press Enter to add; comma-separated supported):</label>
+    <input id="keywordInput" type="text" placeholder="e.g. react, figma, python" />
+    <div id="keywordsList"></div>
   </div>
 
   <div class="row">
