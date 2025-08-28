@@ -206,13 +206,39 @@ window.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  document.getElementById('start').addEventListener('click', async () => {
-    document.getElementById('status').textContent = 'Opening Upwork and starting scrape...';
+  const toggleBtn = document.getElementById('toggle');
+  const clearBtn = document.getElementById('clearSaved');
+
+  // Initialize toggle label based on current status
+  try {
+    const res = await chrome.runtime.sendMessage({ type: 'BG_GET_STATUS' });
+    const paused = !!res?.settings?.scrapePaused;
+    toggleBtn.textContent = paused ? 'Start' : 'Pause';
+  } catch (_) {}
+
+  toggleBtn.addEventListener('click', async () => {
     try {
-      await chrome.runtime.sendMessage({ type: 'BG_START' });
-      log('Started. The extension will wait for the page to fully load, then scrape.');
+      const res = await chrome.runtime.sendMessage({ type: 'BG_GET_STATUS' });
+      const paused = !!res?.settings?.scrapePaused;
+      if (paused) {
+        document.getElementById('status').textContent = 'Opening Upwork and starting scrape...';
+        await chrome.runtime.sendMessage({ type: 'BG_START' });
+        log('Started. The extension will wait for the page to fully load, then scrape.');
+        toggleBtn.textContent = 'Pause';
+      } else {
+        await chrome.runtime.sendMessage({ type: 'BG_PAUSE' });
+        log('Paused. Auto-refresh stopped.');
+        toggleBtn.textContent = 'Start';
+      }
     } catch (e) {
       log(`Error: ${e.message}`);
     }
+  });
+
+  clearBtn.addEventListener('click', () => {
+    localStorage.removeItem('shortlistedJobs');
+    localStorage.setItem('shortlistedUpdatedAt', String(Date.now()));
+    renderSavedJobs();
+    log('Cleared saved jobs.');
   });
 });

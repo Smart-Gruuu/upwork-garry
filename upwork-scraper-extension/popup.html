@@ -29,6 +29,8 @@
       background: var(--up-green); color: #fff; cursor: pointer;
     }
     button:hover { background: var(--up-green-dark); border-color: var(--up-green-dark); }
+    .secondary { background: #fff; color: var(--up-green-dark); border: 1px solid var(--up-green); }
+    .secondary:hover { background: var(--up-green-soft); }
     .copy-link { background: #ffffff; color: var(--up-green-dark); border: 1px solid var(--up-green); padding: 4px 8px; font-size: 12px; border-radius: 6px; }
     .copy-link:hover { background: var(--up-green-soft); }
     #keywordsList { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
@@ -66,7 +68,8 @@
   </div>
 
   <div class="row">
-    <button id="start">Open Upwork and Scrape</button>
+    <button id="toggle">Start</button>
+    <button id="clearSaved" class="secondary">Clear Saved Jobs</button>
   </div>
 
   <h4 style="margin: 8px 0 6px; color: var(--text);">Saved Jobs</h4>

@@ -6,8 +6,8 @@ const ALARM_NAME = 'upwork_scraper_refresh';
 
 // Persist settings
 const getSettings = async () => {
-  const { refreshMinutes = 10, autoOpen = true } = await chrome.storage.local.get(['refreshMinutes', 'autoOpen']);
-  return { refreshMinutes, autoOpen };
+  const { refreshMinutes = 10, autoOpen = true, scrapePaused = false } = await chrome.storage.local.get(['refreshMinutes', 'autoOpen', 'scrapePaused']);
+  return { refreshMinutes, autoOpen, scrapePaused };
 };
 const setSettings = async (settings) => chrome.storage.local.set(settings);
 
@@ -71,6 +71,7 @@ async function rescheduleAlarm(minutes) {
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   (async () => {
     if (msg?.type === 'BG_START') {
+      await setSettings({ scrapePaused: false });
       const { refreshMinutes } = await getSettings();
       const tab = await openOrFocusTarget();
       await waitForComplete(tab.id);
@@ -78,11 +79,20 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       await rescheduleAlarm(refreshMinutes);
       sendResponse({ ok: true });
     }
+    if (msg?.type === 'BG_PAUSE') {
+      await setSettings({ scrapePaused: true });
+      await chrome.alarms.clear(ALARM_NAME);
+      sendResponse({ ok: true });
+    }
     if (msg?.type === 'BG_UPDATE_SETTINGS') {
       await setSettings(msg.payload || {});
-      const { refreshMinutes } = await getSettings();
-      await rescheduleAlarm(refreshMinutes);
+      const { refreshMinutes, scrapePaused } = await getSettings();
+      await rescheduleAlarm(scrapePaused ? 0 : refreshMinutes);
       sendResponse({ ok: true });
+    }
+    if (msg?.type === 'BG_GET_STATUS') {
+      const settings = await getSettings();
+      sendResponse({ ok: true, settings });
     }
   })();
   return true; // async
@@ -91,6 +101,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // Alarm handler: refresh the page and re-scrape when loaded
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== ALARM_NAME) return;
+  const { scrapePaused } = await getSettings();
+  if (scrapePaused) return; // do nothing when paused
   const tab = await openOrFocusTarget();
   // Force reload
   await chrome.tabs.reload(tab.id);
