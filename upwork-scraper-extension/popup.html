@@ -4,15 +4,50 @@
   <meta charset="utf-8" />
   <title>Upwork Job Scraper</title>
   <style>
-    body { font-family: system-ui, Arial, sans-serif; margin: 12px; width: 340px; }
-    button { padding: 8px 12px; font-size: 14px; }
-    .row { margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
-    label { font-size: 12px; color: #333; }
-    input[type=number], input[type=text] { padding: 6px; }
+    :root {
+      --up-green: #14A800;
+      --up-green-dark: #108a00;
+      --up-green-soft: #e6f5e9;
+      --text: #14213d;
+      --muted: #5b5b5b;
+      --border: #e6e6e6;
+      --bg: #ffffff;
+      --card-bg: #ffffff;
+      --card-border: #e9ecef;
+    }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, Arial, sans-serif; margin: 12px; width: 360px; color: var(--text); background: var(--bg); }
+    h3 { margin: 4px 0 12px; color: var(--up-green); }
+    .row { margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    label { font-size: 12px; color: var(--muted); }
+    input[type=number], input[type=text] {
+      padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; outline: none; flex: 1;
+    }
+    input[type=number]:focus, input[type=text]:focus { border-color: var(--up-green); box-shadow: 0 0 0 2px rgba(20,168,0,0.1); }
+    button {
+      padding: 8px 12px; font-size: 14px; border-radius: 8px; border: 1px solid var(--up-green);
+      background: var(--up-green); color: #fff; cursor: pointer;
+    }
+    button:hover { background: var(--up-green-dark); border-color: var(--up-green-dark); }
+    .copy-link { background: #ffffff; color: var(--up-green-dark); border: 1px solid var(--up-green); padding: 4px 8px; font-size: 12px; border-radius: 6px; }
+    .copy-link:hover { background: var(--up-green-soft); }
     #keywordsList { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
-    .chip { background: #eef3ff; border: 1px solid #c9d8ff; border-radius: 12px; padding: 2px 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
-    .chip button { border: none; background: transparent; cursor: pointer; font-size: 12px; }
-    #status { font-size: 12px; color: #444; white-space: pre-wrap; max-height: 160px; overflow: auto; border: 1px solid #ddd; padding: 6px; border-radius: 6px; }
+    .chip { background: var(--up-green-soft); color: var(--text); border: 1px solid #cfe9d4; border-radius: 12px; padding: 2px 8px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+    .chip button { border: none; background: transparent; cursor: pointer; font-size: 14px; color: var(--muted); }
+    .chip button:hover { color: var(--up-green-dark); }
+
+    /* Saved jobs list */
+    #savedJobs { display: grid; grid-template-columns: 1fr; gap: 8px; max-height: 260px; overflow: auto; }
+    .job-card { border: 1px solid var(--card-border); border-radius: 10px; padding: 8px; background: var(--card-bg); }
+    .job-title { font-size: 13px; font-weight: 600; margin: 0 0 6px; color: var(--text); }
+    .job-meta { font-size: 11px; color: var(--muted); display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+    .job-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .skill { background: #f6fdf7; border: 1px solid #d7f0db; color: #0f5132; padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+    .job-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+    .link { color: var(--up-green-dark); text-decoration: none; font-size: 12px; }
+    .link:hover { text-decoration: underline; }
+
+    #status { font-size: 12px; color: #1f2937; white-space: pre-wrap; max-height: 180px; overflow: auto; border: 1px solid var(--border); padding: 8px; border-radius: 8px; background: #fff; }
   </style>
 </head>
 <body>
@@ -34,7 +69,10 @@
     <button id="start">Open Upwork and Scrape</button>
   </div>
 
-  <div id="status">Idle</div>
+  <h4 style="margin: 8px 0 6px; color: var(--text);">Saved Jobs</h4>
+  <div id="savedJobs"></div>
+
+  <div id="status" style="margin-top: 10px;">Idle</div>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -20,6 +20,57 @@ function renderKeywords() {
   });
 }
 
+function renderSavedJobs() {
+  const container = document.getElementById('savedJobs');
+  if (!container) return;
+  const raw = localStorage.getItem('shortlistedJobs');
+  let jobs = [];
+  try {
+    const parsed = JSON.parse(raw || '[]');
+    if (Array.isArray(parsed)) jobs = parsed;
+  } catch (_) {}
+
+  if (!jobs.length) {
+    container.innerHTML = '<div style="font-size:12px;color:#777;">No saved jobs yet.</div>';
+    return;
+  }
+
+  const card = (j) => {
+    const skills = Array.isArray(j?.skills) ? j.skills.slice(0, 6) : [];
+    const meta = [j.payment, j.experienceLevel, j.posted].filter(Boolean).join(' • ');
+    const title = j.title || '(no title)';
+    const url = j.url || '#';
+    return `
+      <div class="job-card">
+        <div class="job-title">${title}</div>
+        <div class="job-meta">${meta}</div>
+        ${skills.length ? `<div class="job-skills">${skills.map(s => `<span class="skill">${s}</span>`).join('')}</div>` : ''}
+        <div class="job-actions">
+          <button class="copy-link" data-url="${url}" ${url ? '' : 'disabled'}>Copy link</button>
+          ${j.clientCountry ? `<span style="font-size:11px;color:#6b7280;">${j.clientCountry}</span>` : ''}
+        </div>
+      </div>`;
+  };
+
+  container.innerHTML = jobs.slice(0, 50).map(card).join('');
+
+  // Delegate copy handling
+  container.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button.copy-link');
+    if (!btn) return;
+    const url = btn.getAttribute('data-url') || '';
+    if (!url) return;
+    try {
+      await navigator.clipboard.writeText(url);
+      const prev = btn.textContent;
+      btn.textContent = 'Copied!';
+      setTimeout(() => { btn.textContent = prev; }, 1000);
+    } catch (err) {
+      console.warn('Clipboard error', err);
+    }
+  });
+}
+
 async function saveKeywords() {
   await chrome.storage.local.set({ keywords });
 }
@@ -49,6 +100,7 @@ async function loadSettings() {
   if (input) input.value = refreshMinutes;
   keywords = Array.isArray(storedKeywords) ? storedKeywords : [];
   renderKeywords();
+  renderSavedJobs();
 }
 
 // Listen for progress logs from content script
@@ -93,6 +145,9 @@ chrome.runtime.onMessage.addListener((message) => {
       localStorage.setItem('shortlistedJobs', JSON.stringify(shortlisted));
       localStorage.setItem('shortlistedUpdatedAt', String(Date.now()));
     }
+
+    // Re-render saved jobs after update
+    renderSavedJobs();
 
     log(`Scraping finished. Collected ${jobs.length} jobs. Shortlisted: ${shortlisted.length}${kws.length ? ` (by ${keywords.join(', ')})` : ''}.`);
     console.log('[UpworkScraper] Jobs (all):', jobs);
