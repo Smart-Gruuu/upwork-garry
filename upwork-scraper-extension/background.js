@@ -4,6 +4,34 @@
 const TARGET_URL = 'https://www.upwork.com/nx/search/jobs/';
 const ALARM_NAME = 'upwork_scraper_refresh';
 
+// Map notification IDs to URLs for click handling
+const notificationUrlMap = new Map();
+
+function createJobNotification(job) {
+  const title = job?.title || 'New job';
+  const url = job?.url || '';
+  const metaParts = [job?.payment, job?.experienceLevel, job?.posted].filter(Boolean);
+  const message = metaParts.join(' • ') || 'New shortlisted job';
+  const nid = `job_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  notificationUrlMap.set(nid, url);
+  chrome.notifications.create(nid, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: `${title}`,
+    message: message,
+    priority: 1
+  });
+}
+
+chrome.notifications.onClicked.addListener((nid) => {
+  const url = notificationUrlMap.get(nid);
+  if (url) {
+    chrome.tabs.create({ url });
+    notificationUrlMap.delete(nid);
+  }
+  chrome.notifications.clear(nid);
+});
+
 // Persist settings
 const getSettings = async () => {
   const { refreshMinutes = 10, autoOpen = true, scrapePaused = false } = await chrome.storage.local.get(['refreshMinutes', 'autoOpen', 'scrapePaused']);
@@ -93,6 +121,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg?.type === 'BG_GET_STATUS') {
       const settings = await getSettings();
       sendResponse({ ok: true, settings });
+    }
+    if (msg?.type === 'BG_NOTIFY_NEW_JOBS') {
+      const list = Array.isArray(msg.payload) ? msg.payload : [];
+      for (const job of list) createJobNotification(job);
+      sendResponse({ ok: true, count: list.length });
     }
   })();
   return true; // async

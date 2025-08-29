@@ -192,18 +192,7 @@ Content script that:
     // Notify via popup channel
     try { chrome.runtime.sendMessage({ type: 'SCRAPER_DONE', payload: jobs }); } catch (_) { }
 
-    // Browser-level notification (Windows toast via chromium integration)
-    const permission = await requestNotificationPermission();
-    if (permission === 'granted') {
-      const n = new Notification('Upwork Scraper', {
-        body: `Scraping complete. Collected ${jobs.length} jobs.`,
-        icon: 'https://www.upwork.com/static/favicon.ico'
-      });
-      setTimeout(() => n.close(), 6000);
-    } else {
-      log(`Notification permission: ${permission}.`);
-    }
-
+    // Do not show batch notification here; popup will request per-new-job notifications via background.
     return { ok: true, jobs };
   };
 

@@ -135,15 +135,32 @@ chrome.runtime.onMessage.addListener((message) => {
       const keyOf = (j) => String(j?.jobUid || j?.url || j?.title || JSON.stringify(j));
       const byKey = new Map();
       for (const j of prev) byKey.set(keyOf(j), j);
-      for (const j of shortlisted) byKey.set(keyOf(j), j); // new overwrites old
+
+      // Track which are truly new
+      const newOnes = [];
+      for (const j of shortlisted) {
+        const k = keyOf(j);
+        if (!byKey.has(k)) newOnes.push(j);
+        byKey.set(k, j); // new overwrites old
+      }
 
       const merged = Array.from(byKey.values());
       localStorage.setItem('shortlistedJobs', JSON.stringify(merged));
       localStorage.setItem('shortlistedUpdatedAt', String(Date.now()));
+
+      // Ask background to notify for each new job
+      if (newOnes.length) {
+        try { chrome.runtime.sendMessage({ type: 'BG_NOTIFY_NEW_JOBS', payload: newOnes }).catch(() => {}); } catch (_) {}
+      }
     } catch (e) {
       console.warn('Failed to merge/save shortlistedJobs', e);
       localStorage.setItem('shortlistedJobs', JSON.stringify(shortlisted));
       localStorage.setItem('shortlistedUpdatedAt', String(Date.now()));
+
+      // If merge failed, treat all as new for notification
+      if (shortlisted.length) {
+        try { chrome.runtime.sendMessage({ type: 'BG_NOTIFY_NEW_JOBS', payload: shortlisted }).catch(() => {}); } catch (_) {}
+      }
     }
 
     // Re-render saved jobs after update
