@@ -111,19 +111,7 @@ chrome.runtime.onMessage.addListener((message) => {
   if (message?.type === 'SCRAPER_DONE') {
     const jobs = Array.isArray(message.payload) ? message.payload : [];
 
-    const kws = keywords.map(k => k.toLowerCase());
-    const matches = (job) => {
-      if (!kws.length) return true; // no keywords → don't filter
-      const title = (job?.title || '').toLowerCase();
-      const snippet = (job?.snippet || '').toLowerCase();
-      const skillsText = Array.isArray(job?.skills) ? job.skills.join(' ').toLowerCase() : '';
-      const haystack = `${title} ${snippet} ${skillsText}`;
-      return kws.some(k => haystack.includes(k));
-    };
-
-    const shortlisted = jobs.filter(matches);
-
-    // Persist filtered jobs to local storage (merge with existing, de-duplicate by jobUid or URL)
+    // Persist jobs to local storage (add new jobs to the top, de-duplicate by jobUid or URL)
     try {
       const prevRaw = localStorage.getItem('shortlistedJobs');
       let prev = [];
@@ -133,18 +121,20 @@ chrome.runtime.onMessage.addListener((message) => {
       } catch (_) {}
 
       const keyOf = (j) => String(j?.jobUid || j?.url || j?.title || JSON.stringify(j));
-      const byKey = new Map();
-      for (const j of prev) byKey.set(keyOf(j), j);
+      const existingKeys = new Set(prev.map(j => keyOf(j)));
 
       // Track which are truly new
       const newOnes = [];
-      for (const j of shortlisted) {
+      for (const j of jobs) {
         const k = keyOf(j);
-        if (!byKey.has(k)) newOnes.push(j);
-        byKey.set(k, j); // new overwrites old
+        if (!existingKeys.has(k)) {
+          newOnes.push(j);
+          existingKeys.add(k);
+        }
       }
 
-      const merged = Array.from(byKey.values());
+      // Add new jobs to the top of the array
+      const merged = [...newOnes, ...prev];
       localStorage.setItem('shortlistedJobs', JSON.stringify(merged));
       localStorage.setItem('shortlistedUpdatedAt', String(Date.now()));
 
@@ -154,23 +144,22 @@ chrome.runtime.onMessage.addListener((message) => {
       }
     } catch (e) {
       console.warn('Failed to merge/save shortlistedJobs', e);
-      localStorage.setItem('shortlistedJobs', JSON.stringify(shortlisted));
+      localStorage.setItem('shortlistedJobs', JSON.stringify(jobs));
       localStorage.setItem('shortlistedUpdatedAt', String(Date.now()));
 
       // If merge failed, treat all as new for notification
-      if (shortlisted.length) {
-        try { chrome.runtime.sendMessage({ type: 'BG_NOTIFY_NEW_JOBS', payload: shortlisted }).catch(() => {}); } catch (_) {}
+      if (jobs.length) {
+        try { chrome.runtime.sendMessage({ type: 'BG_NOTIFY_NEW_JOBS', payload: jobs }).catch(() => {}); } catch (_) {}
       }
     }
 
     // Re-render saved jobs after update
     renderSavedJobs();
 
-    log(`Scraping finished. Collected ${jobs.length} jobs. Shortlisted: ${shortlisted.length}${kws.length ? ` (by ${keywords.join(', ')})` : ''}.`);
-    console.log('[UpworkScraper] Jobs (all):', jobs);
-    console.log('[UpworkScraper] Jobs (shortlisted):', shortlisted);
+    log(`Scraping finished. Collected ${jobs.length} jobs.`);
+    console.log('[UpworkScraper] Jobs:', jobs);
 
-    const toPreview = shortlisted.length ? shortlisted : jobs;
+    const toPreview = jobs;
     if (toPreview.length) {
       const preview = toPreview
         .slice(0, 5)

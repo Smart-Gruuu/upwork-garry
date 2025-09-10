@@ -39,28 +39,63 @@ const getSettings = async () => {
 };
 const setSettings = async (settings) => chrome.storage.local.set(settings);
 
+// Build search URL with keywords
+function buildSearchUrl(keywords = []) {
+  if (!keywords || !keywords.length) {
+    return TARGET_URL;
+  }
+
+  // Format: https://www.upwork.com/nx/search/jobs/?per_page=50&q=(keyword1 OR keyword2 OR keyword3)
+  const keywordQuery = keywords
+    .filter(k => k && k.trim()) // Filter out empty keywords
+    .map(k => encodeURIComponent(k.trim()))
+    .join('%20OR%20');
+  return `${TARGET_URL}?per_page=50&q=(${keywordQuery})`;
+}
+
 // Open or focus target tab
-async function openOrFocusTarget() {
+async function openOrFocusTarget(keywords = []) {
+  const searchUrl = buildSearchUrl(keywords);
+
+  // Try to find an existing tab with Upwork search
   const tabs = await chrome.tabs.query({ url: TARGET_URL + '*' });
   if (tabs.length > 0) {
     const tab = tabs[0];
-    await chrome.tabs.update(tab.id, { active: true });
+    // Update the URL with the new search parameters
+    await chrome.tabs.update(tab.id, { url: searchUrl, active: true });
     return tab;
   }
-  const tab = await chrome.tabs.create({ url: TARGET_URL, active: true });
+
+  // Create a new tab with the search URL
+  const tab = await chrome.tabs.create({ url: searchUrl, active: true });
   return tab;
 }
 
 // Wait until the tab is fully loaded (complete)
-function waitForComplete(tabId, timeoutMs = 60000) {
+function waitForComplete(tabId, timeoutMs = 60000, notifyDelayMs = 10000) {
   return new Promise((resolve, reject) => {
     const start = Date.now();
+    let notified = false; // Ensure we notify only once
     const check = async () => {
       try {
         const tab = await chrome.tabs.get(tabId);
         if (!tab) return reject(new Error('Tab closed'));
         if (tab.status === 'complete') return resolve();
-        if (Date.now() - start > timeoutMs) return reject(new Error('Timeout waiting for load'));
+
+        const elapsed = Date.now() - start;
+        // If the page is not fully loaded within 10 seconds, notify the user (Windows notification via Chrome)
+        if (!notified && elapsed >= notifyDelayMs) {
+          notified = true;
+          chrome.notifications.create(`page_load_delay_${tabId}_${Date.now()}`, {
+            type: 'basic',
+            iconUrl: 'icons/icon128.png',
+            title: 'Page still loading',
+            message: 'Upwork page has not finished reloading after 10 seconds.',
+            priority: 1
+          });
+        }
+
+        if (elapsed > timeoutMs) return reject(new Error('Timeout waiting for load'));
         setTimeout(check, 500);
       } catch (e) {
         // If tab was closed during waiting
@@ -82,7 +117,7 @@ async function injectAndScrape(tabId) {
   } catch (_) {
     // If content script is not ready yet, retry shortly
     setTimeout(async () => {
-      try { await chrome.tabs.sendMessage(tabId, { type: 'START_SCRAPE' }); } catch (_) {}
+      try { await chrome.tabs.sendMessage(tabId, { type: 'START_SCRAPE' }); } catch (_) { }
     }, 1000);
   }
 }
@@ -101,7 +136,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     if (msg?.type === 'BG_START') {
       await setSettings({ scrapePaused: false });
       const { refreshMinutes } = await getSettings();
-      const tab = await openOrFocusTarget();
+
+      // Get keywords from storage
+      const { keywords = [] } = await chrome.storage.local.get(['keywords']);
+
+      // Open tab with keywords in search URL
+      const tab = await openOrFocusTarget(keywords);
       await waitForComplete(tab.id);
       await injectAndScrape(tab.id);
       await rescheduleAlarm(refreshMinutes);
@@ -136,7 +176,12 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== ALARM_NAME) return;
   const { scrapePaused } = await getSettings();
   if (scrapePaused) return; // do nothing when paused
-  const tab = await openOrFocusTarget();
+
+  // Get keywords from storage
+  const { keywords = [] } = await chrome.storage.local.get(['keywords']);
+
+  // Open tab with keywords in search URL
+  const tab = await openOrFocusTarget(keywords);
   // Force reload
   await chrome.tabs.reload(tab.id);
   await waitForComplete(tab.id);

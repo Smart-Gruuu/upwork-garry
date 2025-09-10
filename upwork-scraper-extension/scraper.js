@@ -152,31 +152,47 @@ Content script that:
 
     log('Starting scrape...');
 
-    // Optional: control how many jobs to load (0 = all available via scrolling heuristic)
-    // const TARGET_MIN = 0;
+    // Load previously seen job IDs from localStorage
+    const STORAGE_KEY = 'shortlistedJobs';
+    const loadSeen = () => {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return [];
+        const arr = JSON.parse(raw.jobUid);
+        return Array.isArray(arr) ? arr : [];
+      } catch (_) {
+        return [];
+      }
+    };
+    const saveSeen = (seenArray) => {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(seenArray));
+      } catch (_) { /* ignore quota or JSON errors */ }
+    };
 
-    // Ensure content is loaded by scrolling
-    // const initialCards = findJobCards();
-    // log(`Initial job cards: ${initialCards.length}`);
-
-    // if (TARGET_MIN > 0 && initialCards.length < TARGET_MIN) {
-    //   await scrollToLoad(TARGET_MIN);
-    // } else if (TARGET_MIN === 0) {
-    //   // attempt to load more by a few scrolls
-    //   await scrollToLoad(initialCards.length + 40, 20);
-    // }
+    const seen = loadSeen();
 
     const cards = findJobCards();
     log(`Parsing ${cards.length} job cards...`);
+    log(`Seen: ${seen}`);
 
     const jobs = [];
+    const tempseen = [];
     for (let i = 0; i < cards.length; i++) {
       try {
         const job = parseJobCard(cards[i]);
         if (job?.title) {
-          jobs.push(job);
-          // Log full job details for each card
-          console.log('[UpworkScraper] Job parsed:', job);
+          // Determine a stable identifier for the job
+          const id = job.jobUid || job.url || job.title;
+          if (id && !seen.includes(id)) {
+            jobs.push(job);
+            // seen.push(id);
+            tempseen.push(id);
+            // Log full job details for each new job
+            console.log('[UpworkScraper] New job parsed:', job);
+          } else {
+            console.log('[UpworkScraper] Skipped duplicate job:', { id, title: job.title });
+          }
         }
         log(`Progress: ${i + 1}/${cards.length}`);
       } catch (e) {
@@ -185,6 +201,12 @@ Content script that:
       // Small yield to keep UI responsive
       if (i % 15 === 0) await sleep(0);
     }
+    
+    // seen.push(...tempseen);
+    // Add tempseen items to the beginning of seen array
+    seen.unshift(...tempseen);
+    // Persist updated seen set
+    saveSeen(seen);
 
     // Log final results to console
     console.log('[UpworkScraper] Result jobs:', jobs);
